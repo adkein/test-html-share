@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brachistochrone Problem Visualization</title>
+    <!-- Plotly.js CDN -->
+    <script src="https://cdn.plot.ly/plotly-2.29.1.min.js" charset="utf-8"></script>
+    <style>
+        body { font-family: sans-serif; margin: 20px; display: flex; flex-direction: column; align-items: center; }
+        .controls { margin-bottom: 20px; display: grid; grid-template-columns: auto 1fr auto; gap: 10px 20px; align-items: center; }
+        .controls label { text-align: right; }
+        .controls input[type="range"] { width: 200px; }
+        #plotDiv { width: 90vw; max-width: 800px; height: 60vh; max-height: 600px; border: 1px solid #ccc; }
+        #errorMessage { color: red; margin-top: 10px; text-align: center; }
+    </style>
+</head>
+<body>
+
+    <h1>Brachistochrone Curve</h1>
+
+    <div class="controls">
+        <label for="yStartSlider">Start Height (y₁):</label>
+        <input type="range" id="yStartSlider" min="0" max="10" value="5" step="0.1">
+        <span id="yStartValue">5.0</span>
+
+        <label for="yEndSlider">End Height (y₂):</label>
+        <input type="range" id="yEndSlider" min="0" max="10" value="1" step="0.1">
+        <span id="yEndValue">1.0</span>
+
+        <label for="xLengthSlider">Horizontal Span (X):</label>
+        <input type="range" id="xLengthSlider" min="0" max="10" value="5" step="0.1">
+        <span id="xLengthValue">5.0</span>
+    </div>
+
+    <div id="plotDiv"></div>
+    <div id="errorMessage"></div>
+
+    <script>
+        const yStartSlider = document.getElementById('yStartSlider');
+        const yEndSlider = document.getElementById('yEndSlider');
+        const xLengthSlider = document.getElementById('xLengthSlider');
+
+        const yStartValueSpan = document.getElementById('yStartValue');
+        const yEndValueSpan = document.getElementById('yEndValue');
+        const xLengthValueSpan = document.getElementById('xLengthValue');
+
+        const plotDiv = document.getElementById('plotDiv');
+        const errorMessageDiv = document.getElementById('errorMessage');
+
+        // Bisection method for root finding
+        function bisection(func, a, b, tolerance = 1e-7, maxIterations = 100) {
+            if (func(a) * func(b) >= 0 && Math.abs(func(a)) > tolerance && Math.abs(func(b)) > tolerance) {
+                // Check if one of the bounds is already a root (within tolerance)
+                console.warn("Bisection: f(a) and f(b) must have opposite signs or one be very close to zero.");
+                return NaN; // Or handle more gracefully
+            }
+
+            let c = a;
+            for (let i = 0; i < maxIterations; i++) {
+                c = (a + b) / 2;
+                const fc = func(c);
+                if (Math.abs(fc) < tolerance || (b - a) / 2 < tolerance) {
+                    return c;
+                }
+                if (func(a) * fc < 0) {
+                    b = c;
+                } else {
+                    a = c;
+                }
+            }
+            console.warn("Bisection: Max iterations reached.");
+            return c; // Return best guess
+        }
+
+        function solveForThetaFinal(deltaX, deltaY) {
+            if (deltaX === 0) return 0; // Vertical drop
+            if (deltaY === 0) return 2 * Math.PI; // Horizontal, y_start = y_end
+
+            const ratio = deltaX / deltaY;
+
+            const funcToSolve = (theta) => {
+                if (Math.abs(1 - Math.cos(theta)) < 1e-9) { // Avoid division by zero near 0 or 2*pi
+                    // Taylor expansion near 0 for (t-sin t)/(1-cos t) ~ t/3
+                    if (theta < 1e-9) return theta / 3.0 - ratio;
+                    // Near 2pi, ratio should be large, so (theta - sin(theta))/(1-cos(theta)) is large
+                    // This case is usually handled by deltaY === 0.
+                    // To prevent division by zero, return a large number if 1-cos(theta) is tiny.
+                    return (theta - Math.sin(theta)) / (1.0 - Math.cos(theta) + 1e-12) - ratio;
+
+                }
+                return (theta - Math.sin(theta)) / (1.0 - Math.cos(theta)) - ratio;
+            };
+
+            // The function (t - sin t) / (1 - cos t) ranges from 0 (as t->0) to infinity (as t->2pi).
+            // So theta_f must be between 0 and 2*pi.
+            // Add small epsilons to avoid issues at exact 0 or 2*pi if funcToSolve is not robust there.
+            let lowerBound = 1e-9;
+            let upperBound = 2 * Math.PI - 1e-9;
+            
+            // Check if the function has different signs at bounds (required for bisection)
+            // If ratio is very small (steep drop), theta_f is small. funcToSolve(lowerBound) will be small negative.
+            // If ratio is very large (shallow drop), theta_f is near 2pi. funcToSolve(upperBound) will be large positive.
+            // The function funcToSolve = f(theta) - ratio should cross zero.
+            
+            // Refine bounds if ratio is very small or very large
+            if (ratio < 0.1) upperBound = Math.PI; // theta_f will likely be < pi
+            if (ratio > 10) lowerBound = Math.PI / 2;   // theta_f will likely be > pi/2
+
+            // Ensure funcToSolve(lowerBound) and funcToSolve(upperBound) have opposite signs
+            // or one is very close to zero for bisection
+            const valAtLower = funcToSolve(lowerBound);
+            const valAtUpper = funcToSolve(upperBound);
+
+            if (valAtLower * valAtUpper > 0 && Math.abs(valAtLower) > 1e-7 && Math.abs(valAtUpper) > 1e-7) {
+                 // Fallback to full range if initial guess for bounds fails
+                lowerBound = 1e-9;
+                upperBound = 2 * Math.PI - 1e-9;
+                 if (funcToSolve(lowerBound) * funcToSolve(upperBound) > 0 && Math.abs(funcToSolve(lowerBound)) > 1e-7 && Math.abs(funcToSolve(upperBound)) > 1e-7) {
+                    console.warn(`Bisection might fail: funcToSolve(${lowerBound.toFixed(3)}) = ${funcToSolve(lowerBound).toFixed(3)}, funcToSolve(${upperBound.toFixed(3)}) = ${funcToSolve(upperBound).toFixed(3)} for ratio ${ratio.toFixed(3)}`);
+                    // Attempt to find a better interval if possible, or return NaN
+                    if (ratio < 0.01) return ratio * 3; // Approx for very small theta
+                    // For very large ratios, theta_f approaches 2*pi.
+                    // Our bisection might struggle if the zero is too close to the boundary.
+                    // The deltaY === 0 case should ideally catch when theta_f is exactly 2*pi.
+                 }
+            }
+
+            const thetaF = bisection(funcToSolve, lowerBound, upperBound);
+            return thetaF;
+        }
+
+        function updatePlot() {
+            const yStart = parseFloat(yStartSlider.value);
+            const yEnd = parseFloat(yEndSlider.value);
+            const xLength = parseFloat(xLengthSlider.value);
+
+            yStartValueSpan.textContent = yStart.toFixed(1);
+            yEndValueSpan.textContent = yEnd.toFixed(1);
+            xLengthValueSpan.textContent = xLength.toFixed(1);
+
+            errorMessageDiv.textContent = ""; // Clear previous errors
+
+            if (yEnd > yStart) {
+                errorMessageDiv.textContent = "End height (y₂) must be at or below start height (y₁) for a solution from rest.";
+                Plotly.react(plotDiv, [], {
+                    title: 'Brachistochrone Curve (Invalid Parameters)',
+                    xaxis: { title: 'Horizontal Distance (x)', range: [0, Math.max(1, xLength)] },
+                    yaxis: { title: 'Height (y)', range: [Math.min(0,yStart,yEnd)-1, Math.max(1,yStart,yEnd)+1], scaleanchor: "x", scaleratio: 1 },
+                    margin: { l: 50, r: 50, b: 50, t: 50, pad: 4 }
+                });
+                return;
+            }
+
+            const P1 = { x: 0, y: yStart };
+            const P2 = { x: xLength, y: yEnd };
+
+            const traces = [];
+
+            // Straight line
+            traces.push({
+                x: [P1.x, P2.x],
+                y: [P1.y, P2.y],
+                mode: 'lines',
+                line: { dash: 'dash', color: 'red' },
+                name: 'Straight Line'
+            });
+
+            // Brachistochrone (Cycloid)
+            const deltaX = xLength;
+            const deltaY = yStart - yEnd; // Must be >= 0
+
+            let R, thetaF;
+            let xCycloid = [], yCycloid = [];
+            let xGenCircle = [], yGenCircle = [];
+            let genCircleLayout = null;
+
+            if (deltaX === 0 && deltaY === 0) { // Start and end at same point
+                xCycloid = [P1.x];
+                yCycloid = [P1.y];
+                R = 0;
+            } else if (deltaX === 0) { // Vertical drop
+                xCycloid = [P1.x, P2.x];
+                yCycloid = [P1.y, P2.y];
+                R = Infinity; // Effective
+            } else if (deltaY === 0) { // Horizontal, y_start = y_end
+                thetaF = 2 * Math.PI;
+                R = deltaX > 0 ? deltaX / (2 * Math.PI) : 0;
+                if (R > 0) {
+                    for (let i = 0; i <= 100; i++) {
+                        const theta = (i / 100) * thetaF;
+                        xCycloid.push(R * (theta - Math.sin(theta)));
+                        yCycloid.push(yStart - R * (1 - Math.cos(theta)));
+                    }
+                } else {
+                     xCycloid = [P1.x];
+                     yCycloid = [P1.y];
+                }
+            } else { // General case
+                thetaF = solveForThetaFinal(deltaX, deltaY);
+                if (isNaN(thetaF) || thetaF < 1e-7) {
+                     if (deltaX / deltaY < 0.01 && deltaX / deltaY >=0) { // Very steep, approx as vertical
+                        xCycloid = [P1.x, P2.x];
+                        yCycloid = [P1.y, P2.y];
+                        errorMessageDiv.textContent = "Approximating as vertical drop (theta_f too small or bisection issue).";
+                     } else {
+                        errorMessageDiv.textContent = `Could not find cycloid solution (theta_f=${thetaF}). Bisection might have failed for ratio ${ (deltaX/deltaY).toFixed(3) }.`;
+                        R = NaN;
+                     }
+                } else if (Math.abs(1 - Math.cos(thetaF)) < 1e-9) {
+                     errorMessageDiv.textContent = "Problematic theta_f where 1-cos(theta_f) is near zero (should be caught by deltaY=0).";
+                     R = NaN;
+                }
+                else {
+                    R = deltaY / (1 - Math.cos(thetaF));
+                }
+
+                if (R > 0 && !isNaN(R) && isFinite(R)) {
+                    for (let i = 0; i <= 100; i++) {
+                        const theta = (i / 100) * thetaF;
+                        xCycloid.push(R * (theta - Math.sin(theta)));
+                        yCycloid.push(yStart - R * (1 - Math.cos(theta)));
+                    }
+                } else if (!errorMessageDiv.textContent) {
+                     errorMessageDiv.textContent = `Invalid R (${R ? R.toFixed(2) : R}) or theta_f (${thetaF ? thetaF.toFixed(2) : thetaF}) calculated.`;
+                }
+            }
+
+            if (xCycloid.length > 0) {
+                traces.push({
+                    x: xCycloid,
+                    y: yCycloid,
+                    mode: 'lines',
+                    line: { color: 'blue', width: 2.5 },
+                    name: 'Brachistochrone (Cycloid)'
+                });
+            }
+
+            // Optional: Generating Circle (if R is valid and thetaF is determined)
+            if (R > 0 && R < Infinity && thetaF > 1e-7 && thetaF < 2*Math.PI - 1e-7 && deltaX > 0 && deltaY > 0) {
+                const circleCenterX = R * thetaF; // This is x-coord of center when point is at (x_cycloid_end, y_cycloid_end)
+                const circleCenterY = yStart - R; // Rolling on line y = yStart - R
+                
+                // To draw the circle, we need points around its circumference
+                const N_circle_pts = 50;
+                for (let i = 0; i <= N_circle_pts; i++) {
+                    const angle = (i / N_circle_pts) * 2 * Math.PI;
+                    xGenCircle.push(circleCenterX + R * Math.cos(angle));
+                    yGenCircle.push(circleCenterY + R * Math.sin(angle));
+                }
+                traces.push({
+                    x: xGenCircle,
+                    y: yGenCircle,
+                    mode: 'lines',
+                    line: { color: 'grey', dash: 'dot', width: 1 },
+                    name: 'Generating Circle (Final Pos)'
+                });
+            }
+
+
+            // Start and End Points
+            traces.push({
+                x: [P1.x, P2.x],
+                y: [P1.y, P2.y],
+                mode: 'markers',
+                marker: { color: 'black', size: 8 },
+                name: 'Start/End Points'
+            });
+
+            // Determine plot ranges dynamically
+            let allX = [P1.x, P2.x, ...xCycloid, ...xGenCircle];
+            let allY = [P1.y, P2.y, ...yCycloid, ...yGenCircle];
+            
+            // Filter out NaNs or Infs that might have crept in
+            allX = allX.filter(val => isFinite(val));
+            allY = allY.filter(val => isFinite(val));
+
+
+            let minX = 0, maxX = Math.max(1, xLength), minY = 0, maxY = Math.max(1, yStart, yEnd);
+
+            if (allX.length > 0) minX = Math.min(...allX);
+            if (allX.length > 0) maxX = Math.max(...allX);
+            if (allY.length > 0) minY = Math.min(...allY);
+            if (allY.length > 0) maxY = Math.max(...allY);
+            
+            const paddingX = (maxX - minX) * 0.1 + 0.1;
+            const paddingY = (maxY - minY) * 0.1 + 0.1;
+
+            const layout = {
+                title: 'Brachistochrone Curve',
+                xaxis: {
+                    title: 'Horizontal Distance (x)',
+                    range: [minX - paddingX, maxX + paddingX],
+                    zeroline: false
+                },
+                yaxis: {
+                    title: 'Height (y)',
+                    range: [minY - paddingY, maxY + paddingY],
+                    scaleanchor: "x", // This makes the aspect ratio 1:1
+                    scaleratio: 1,
+                    zeroline: false
+                },
+                legend: { x: 0.05, y: 0.95 },
+                margin: { l: 60, r: 20, b: 50, t: 50, pad: 4 }
+            };
+
+            Plotly.react(plotDiv, traces, layout);
+        }
+
+        // Event listeners for sliders
+        yStartSlider.addEventListener('input', updatePlot);
+        yEndSlider.addEventListener('input', updatePlot);
+        xLengthSlider.addEventListener('input', updatePlot);
+
+        // Initial plot
+        updatePlot();
+    </script>
+
+</body>
+</html>
