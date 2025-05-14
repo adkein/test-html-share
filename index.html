@@ -3,132 +3,45 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>My GitHub Pages Site</title>
+    <title>My Projects</title>
     <style>
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
-            line-height: 1.6;
-            margin: 0;
-            padding: 0;
-            background-color: #f4f4f4;
-            color: #333;
+            font-family: sans-serif;
+            margin: 20px;
+            line-height: 1.5;
         }
-
-        .container {
-            max-width: 960px;
-            margin: 40px auto;
-            padding: 20px;
-            background-color: #fff;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
+        h1 {
+            margin-bottom: 20px;
         }
-
-        header {
-            background-color: #333;
-            color: #fff;
-            padding: 1rem 0;
-            text-align: center;
-            border-top-left-radius: 8px;
-            border-top-right-radius: 8px;
+        ul {
+            list-style-type: disc; /* Or square, circle, or none if you prefer no bullets */
+            padding-left: 20px; /* Indent the bullet points */
         }
-
-        header h1 {
-            margin: 0;
-            font-size: 2.5em;
+        li {
+            margin-bottom: 10px; /* Space between list items */
         }
-
-        nav ul {
-            list-style-type: none;
-            padding: 0;
-            margin: 20px 0 0 0; /* Added top margin */
-            text-align: center;
-        }
-
-        nav ul li {
-            display: inline-block; /* Changed from block for horizontal menu */
-            margin: 0 15px; /* Spacing between menu items */
-        }
-
-        nav ul li a {
+        a {
             text-decoration: none;
-            color: #007bff; /* Bootstrap primary blue */
-            font-weight: bold;
-            padding: 10px 15px;
-            border-radius: 5px;
-            transition: background-color 0.3s ease;
+            color: #007bff; /* A standard link blue */
         }
-
-        nav ul li a:hover,
-        nav ul li a:focus {
-            background-color: #e9ecef; /* Light grey hover */
-            color: #0056b3; /* Darker blue on hover */
-        }
-
-        .content {
-            padding: 20px;
-            text-align: center; /* Center welcome message */
-        }
-
-        .content h2 {
-            color: #333;
-            margin-top: 0;
-        }
-
-        .content p {
-            font-size: 1.1em;
-        }
-
-        footer {
-            text-align: center;
-            margin-top: 30px;
-            padding: 20px;
-            background-color: #333;
-            color: #fff;
-            border-bottom-left-radius: 8px;
-            border-bottom-right-radius: 8px;
-        }
-
-        /* Simple responsive adjustments */
-        @media (max-width: 600px) {
-            nav ul li {
-                display: block; /* Stack menu items vertically on small screens */
-                margin: 10px 0;
-            }
-            .container {
-                margin: 20px 10px;
-            }
+        a:hover {
+            text-decoration: underline;
         }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to My Projects!</h1>
-    </header>
 
-    <div class="container">
-        <nav>
-            <ul>
-                <li><a href="./">Home</a></li> <!-- Link to this landing page itself -->
-                <li><a href="./brachistochrone/">Brachistochrone Visualization</a></li>
-                <li><a href="./other-project-1/">Another Cool Project</a></li>
-                <!-- Add more list items for other pages -->
-                <li><a href="https://github.com/YOUR_USERNAME/YOUR_REPO_NAME" target="_blank">View on GitHub</a></li>
-            </ul>
-        </nav>
+    <h1>My Projects</h1>
 
-        <div class="content">
-            <h2>About This Site</h2>
-            <p>This site hosts a collection of my interactive web projects and visualizations. Use the menu above to navigate to different tools.</p>
-            <p>Feel free to explore!</p>
-        </div>
-    </div>
+    <p>Welcome! Here are some of my web projects and visualizations:</p>
 
-    <footer>
-        <p>© <span id="currentYear"></span> Your Name. All rights reserved.</p>
-    </footer>
+    <ul>
+        <li><a href="./brachistochrone/">Brachistochrone Curve Visualization</a></li>
+        <li><a href="./other-project-1/">Another Cool Project (Placeholder)</a></li>
+        <!-- Add more list items for other pages like this: -->
+        <!-- <li><a href="./another-tool/">My Other Amazing Tool</a></li> -->
+        <li><a href="https://github.com/YOUR_USERNAME/YOUR_REPO_NAME" target="_blank">View Source on GitHub</a></li>
+    </ul>
 
-    <script>
-        document.getElementById('currentYear').textContent = new Date().getFullYear();
-    </script>
 </body>
 </html>
