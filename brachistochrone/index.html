@@ -3,28 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Brachistochrone Problem Visualization (Dark Mode)</title>
+    <title>Brachistochrone Visualization (Dark Mode)</title>
     <!-- Plotly.js CDN -->
     <script src="https://cdn.plot.ly/plotly-2.29.1.min.js" charset="utf-8"></script>
     <style>
+        /* Styles for the overall page dark mode */
         body {
             font-family: sans-serif;
-            margin: 0; /* Remove default margin */
+            margin: 0;
             padding: 20px;
             display: flex;
             flex-direction: column;
             align-items: center;
-            background-color: #222; /* Dark background */
-            color: #e0e0e0; /* Light text */
+            background-color: #222; /* Dark page background */
+            color: #e0e0e0;       /* Light page text */
         }
         h1 {
             text-align: center;
-            color: #e0e0e0; /* Light text for heading */
+            color: #e0e0e0;
         }
         .controls {
             margin-bottom: 20px;
             padding: 15px;
-            background-color: #333; /* Slightly lighter dark for controls background */
+            background-color: #333;
             border-radius: 8px;
             box-shadow: 0 2px 5px rgba(0,0,0,0.3);
             display: grid;
@@ -36,44 +37,31 @@
         }
         .controls label {
             text-align: right;
-            color: #ccc; /* Lighter grey for labels */
+            color: #ccc;
         }
         .controls input[type="range"] {
             width: 100%;
             min-width: 150px;
-            /* Basic cross-browser dark mode for sliders */
-            accent-color: #007bff; /* Color for the thumb and active track part */
+            accent-color: #007bff; /* Slider thumb and active track color */
         }
-        .controls input[type="range"]::-webkit-slider-runnable-track {
-            background: #555; /* Darker track for WebKit */
-        }
-        .controls input[type="range"]::-moz-range-track {
-            background: #555; /* Darker track for Firefox */
-        }
-        .controls span {
-            color: #e0e0e0; /* Light text for slider values */
-        }
+        .controls input[type="range"]::-webkit-slider-runnable-track { background: #555; }
+        .controls input[type="range"]::-moz-range-track { background: #555; }
+        .controls span { color: #e0e0e0; }
 
-        #plotDiv {
+        #plotDiv { /* Container for the Plotly chart */
             width: 90vw;
             max-width: 800px;
             height: 60vh;
             max-height: 600px;
-            border: 1px solid #555; /* Lighter border for plot area */
+            border: 1px solid #555; /* Border around the plot container */
             border-radius: 4px;
         }
         #errorMessage {
-            color: #ff6b6b; /* Light red for error messages */
+            color: #ff6b6b; /* Light red for errors */
             margin-top: 15px;
             text-align: center;
             min-height: 1.2em;
             font-weight: bold;
-        }
-        a {
-            color: #6cb2eb; /* Lighter blue for links if any were added */
-        }
-        a:hover {
-            color: #8ec9f2;
         }
     </style>
 </head>
@@ -102,186 +90,80 @@
         const yStartSlider = document.getElementById('yStartSlider');
         const yEndSlider = document.getElementById('yEndSlider');
         const xLengthSlider = document.getElementById('xLengthSlider');
-
         const yStartValueSpan = document.getElementById('yStartValue');
         const yEndValueSpan = document.getElementById('yEndValue');
         const xLengthValueSpan = document.getElementById('xLengthValue');
-
         const plotDiv = document.getElementById('plotDiv');
         const errorMessageDiv = document.getElementById('errorMessage');
 
-        // Bisection method (same as before)
         function bisection(func, a, b, tolerance = 1e-7, maxIterations = 100) {
-            let fa = func(a);
-            let fb = func(b);
-            if (Math.abs(fa) < tolerance) return a;
-            if (Math.abs(fb) < tolerance) return b;
-            if (fa * fb >= 0) {
-                console.warn("Bisection: f(a) and f(b) must have opposite signs.", {a, fa, b, fb});
-                return NaN;
-            }
+            let fa = func(a), fb = func(b);
+            if (Math.abs(fa) < tolerance) return a; if (Math.abs(fb) < tolerance) return b;
+            if (fa * fb >= 0) { console.warn("Bisection: f(a) f(b) same sign.", {a,fa,b,fb}); return NaN; }
             let c = a;
             for (let i = 0; i < maxIterations; i++) {
-                c = (a + b) / 2;
-                const fc = func(c);
-                if (Math.abs(fc) < tolerance || (b - a) / 2 < tolerance) return c;
-                if (fa * fc < 0) { b = c; fb = fc; }
-                else { a = c; fa = fc; }
+                c = (a + b) / 2; const fc = func(c);
+                if (Math.abs(fc) < tolerance || (b-a)/2 < tolerance) return c;
+                if (fa * fc < 0) { b=c; fb=fc; } else { a=c; fa=fc; }
             }
-            console.warn("Bisection: Max iterations reached.");
-            return c;
+            console.warn("Bisection: Max iterations."); return c;
         }
 
-        // solveForThetaFinal (same as before)
         function solveForThetaFinal(deltaX, deltaY) {
             if (deltaX < 1e-9 && deltaX > -1e-9) return 0;
-            if (deltaY < 1e-9 && deltaY > -1e-9) return 2 * Math.PI;
+            if (deltaY < 1e-9 && deltaY > -1e-9) return 2*Math.PI;
             const ratio = deltaX / deltaY;
             const funcToSolve = (theta) => {
-                const oneMinusCosTheta = 1.0 - Math.cos(theta);
-                if (Math.abs(oneMinusCosTheta) < 1e-9) {
-                    if (theta < 1e-6) return theta / 3.0 - ratio;
-                    return (theta - Math.sin(theta)) / (oneMinusCosTheta + Math.sign(oneMinusCosTheta)*1e-12) - ratio;
-                }
-                return (theta - Math.sin(theta)) / oneMinusCosTheta - ratio;
+                const oneMCosT = 1.0 - Math.cos(theta);
+                if (Math.abs(oneMCosT) < 1e-9) return (theta < 1e-6) ? theta/3.0 - ratio : (theta-Math.sin(theta))/(oneMCosT+Math.sign(oneMCosT)*1e-12)-ratio;
+                return (theta-Math.sin(theta))/oneMCosT - ratio;
             };
-            let lowerBound = 1e-7;
-            let upperBound = 2 * Math.PI - 1e-7;
-            const thetaF = bisection(funcToSolve, lowerBound, upperBound);
-            if (isNaN(thetaF)) {
-                if (ratio > 0 && ratio < 0.01) {
-                    console.warn("Bisection failed, falling back to Taylor approx for small ratio.");
-                    return ratio * 3.0;
-                }
-            }
-            return thetaF;
+            let lo=1e-7, hi=2*Math.PI-1e-7; const tF=bisection(funcToSolve, lo, hi);
+            if (isNaN(tF) && ratio>0 && ratio<0.01) return ratio*3.0;
+            return tF;
         }
 
         function updatePlot() {
-            const yStart = parseFloat(yStartSlider.value);
-            const yEnd = parseFloat(yEndSlider.value);
-            const xLength = parseFloat(xLengthSlider.value);
+            const yS = parseFloat(yStartSlider.value), yE = parseFloat(yEndSlider.value), xL = parseFloat(xLengthSlider.value);
+            yStartValueSpan.textContent=yS.toFixed(1); yEndValueSpan.textContent=yE.toFixed(1); xLengthValueSpan.textContent=xL.toFixed(1);
+            errorMessageDiv.textContent="";
 
-            yStartValueSpan.textContent = yStart.toFixed(1);
-            yEndValueSpan.textContent = yEnd.toFixed(1);
-            xLengthValueSpan.textContent = xLength.toFixed(1);
-            errorMessageDiv.textContent = "";
+            // This layout object is used when there's an error (e.g., yEnd > yStart)
+            const errorLayout = {
+                title: 'Brachistochrone Curve (Invalid Parameters)',
+                template: 'plotly_dark', // <<< PLOTLY DARK THEME FOR ERROR MESSAGE PLOT
+                xaxis: { title: 'Horizontal Distance (x)', range: [0, Math.max(1,xL)], zeroline: false },
+                yaxis: { title: 'Height (y)', range: [Math.min(0,yS,yE)-1, Math.max(1,yS,yE)+1], scaleanchor: "x", scaleratio: 1, zeroline: false },
+                margin: { l: 60, r: 20, b: 50, t: 50, pad: 4 }
+            };
 
-            if (yEnd > yStart + 1e-6) {
-                errorMessageDiv.textContent = "End height (y₂) must be at or below start height (y₁).";
-                Plotly.react(plotDiv, [], {
-                    title: 'Brachistochrone Curve (Invalid Parameters)',
-                    template: 'plotly_dark', // Apply dark theme to error plot too
-                    xaxis: { title: 'Horizontal Distance (x)', range: [0, Math.max(1, xLength)], zeroline: false },
-                    yaxis: { title: 'Height (y)', range: [Math.min(0,yStart,yEnd)-1, Math.max(1,yStart,yEnd)+1], scaleanchor: "x", scaleratio: 1, zeroline: false },
-                    margin: { l: 60, r: 20, b: 50, t: 50, pad: 4 }
-                });
-                return;
+            if (yE > yS + 1e-6) {
+                errorMessageDiv.textContent="End height (y₂) must be at or below start height (y₁).";
+                Plotly.react(plotDiv, [], errorLayout); return;
             }
 
-            const P1 = { x: 0, y: yStart };
-            const P2 = { x: xLength, y: yEnd };
-            const traces = [];
+            const P1={x:0,y:yS}, P2={x:xL,y:yE}; const traces=[];
+            traces.push({x:[P1.x,P2.x],y:[P1.y,P2.y],mode:'lines',line:{dash:'dash',color:'#ff6347'},name:'Straight Line'});
+            const dX=xL, dY=yS-yE; let R,tF,xC=[],yC=[];
+            if(dX<1e-9&&dY<1e-9){xC=[P1.x];yC=[P1.y];R=0}
+            else if(dX<1e-9){xC=[P1.x,P2.x];yC=[P1.y,P2.y];R=Infinity}
+            else if(dY<1e-9){tF=2*Math.PI;R=dX/(2*Math.PI);if(R>0)for(let i=0;i<=100;i++){const th=(i/100)*tF;xC.push(R*(th-Math.sin(th)));yC.push(yS-R*(1-Math.cos(th)))}else{xC=[P1.x];yC=[P1.y]}}
+            else{tF=solveForThetaFinal(dX,dY);if(isNaN(tF)||tF<1e-7||tF>2*Math.PI-1e-7){if(dX/dY<0.01&&dX/dY>=0&&(isNaN(tF)||tF<1e-7)){errorMessageDiv.textContent="Approximating as vertical (solver issue).";xC=[P1.x,P2.x];yC=[P1.y,P2.y]}else if(isNaN(tF))errorMessageDiv.textContent=`Solver failed for ratio ${(dX/dY).toFixed(3)}.`;else errorMessageDiv.textContent=`Theta_f (${tF.toFixed(3)}) out of range.`;R=NaN}else R=dY/(1-Math.cos(tF));if(R>0&&!isNaN(R)&&isFinite(R)&&!isNaN(tF))for(let i=0;i<=100;i++){const th=(i/100)*tF;xC.push(R*(th-Math.sin(th)));yC.push(yS-R*(1-Math.cos(th)))}else if(!errorMessageDiv.textContent)errorMessageDiv.textContent=`Invalid R (${R?R.toFixed(2):R}) or theta_f (${tF?tF.toFixed(3):tF}).`}
+            if(xC.length>0)traces.push({x:xC,y:yC,mode:'lines',line:{color:'#1f77b4',width:2.5},name:'Brachistochrone'});
+            let xGC=[],yGC=[];if(R>0&&R<Infinity&&xC.length>1&&dX>1e-9&&dY>1e-9&&!isNaN(tF)&&tF>1e-7&&tF<(2*Math.PI-1e-7)){const cX=R*tF,cY=yS-R;for(let i=0;i<=50;i++){const ang=(i/50)*2*Math.PI;xGC.push(cX+R*Math.cos(ang));yGC.push(cY+R*Math.sin(ang))}traces.push({x:xGC,y:yGC,mode:'lines',line:{color:'#7f7f7f',dash:'dot',width:1},name:'Generating Circle'})}
+            traces.push({x:[P1.x,P2.x],y:[P1.y,P2.y],mode:'markers',marker:{color:'#fff',size:8,line:{color:'#555',width:1}},name:'Start/End Points'});
+            let allX=[P1.x,P2.x,...xC,...xGC].filter(v=>isFinite(v)),allY=[P1.y,P2.y,...yC,...yGC].filter(v=>isFinite(v));
+            let mX=0,MX=Math.max(1,xL),mY=0,MY=Math.max(1,yS,yE);
+            if(allX.length>0){mX=Math.min(...allX);MX=Math.max(...allX)}if(allY.length>0){mY=Math.min(...allY);MY=Math.max(...allY)}
+            const pX=Math.max((MX-mX)*0.1,0.5),pY=Math.max((MY-mY)*0.1,0.5);
 
-            traces.push({
-                x: [P1.x, P2.x], y: [P1.y, P2.y], mode: 'lines',
-                line: { dash: 'dash', color: '#ff6347' }, name: 'Straight Line' // Tomato red
-            });
-
-            const deltaX = xLength;
-            const deltaY = yStart - yEnd;
-            let R, thetaF;
-            let xCycloid = [], yCycloid = [];
-
-            if (deltaX < 1e-9 && deltaY < 1e-9) {
-                xCycloid = [P1.x]; yCycloid = [P1.y]; R = 0;
-            } else if (deltaX < 1e-9) {
-                xCycloid = [P1.x, P2.x]; yCycloid = [P1.y, P2.y]; R = Infinity;
-            } else if (deltaY < 1e-9) {
-                thetaF = 2 * Math.PI;
-                R = deltaX / (2 * Math.PI);
-                if (R > 0) {
-                    for (let i = 0; i <= 100; i++) {
-                        const theta = (i / 100) * thetaF;
-                        xCycloid.push(R * (theta - Math.sin(theta)));
-                        yCycloid.push(yStart - R * (1 - Math.cos(theta)));
-                    }
-                } else { xCycloid = [P1.x]; yCycloid = [P1.y]; }
-            } else {
-                thetaF = solveForThetaFinal(deltaX, deltaY);
-                if (isNaN(thetaF) || thetaF < 1e-7 || thetaF > 2 * Math.PI - 1e-7) {
-                    if (deltaX / deltaY < 0.01 && deltaX / deltaY >= 0 && (isNaN(thetaF) || thetaF < 1e-7) ) {
-                        errorMessageDiv.textContent = "Approximating as vertical drop (bisection difficulty).";
-                        xCycloid = [P1.x, P2.x]; yCycloid = [P1.y, P2.y];
-                    } else if (isNaN(thetaF)) {
-                        errorMessageDiv.textContent = `Solver failed for ratio ${(deltaX/deltaY).toFixed(3)}. Try adjusting.`;
-                    } else {
-                        errorMessageDiv.textContent = `Calculated theta_f (${thetaF.toFixed(3)}) is out of expected range.`;
-                    }
-                    R = NaN;
-                } else {
-                    R = deltaY / (1 - Math.cos(thetaF));
-                }
-
-                if (R > 0 && !isNaN(R) && isFinite(R) && !isNaN(thetaF)) {
-                    for (let i = 0; i <= 100; i++) {
-                        const theta = (i / 100) * thetaF;
-                        xCycloid.push(R * (theta - Math.sin(theta)));
-                        yCycloid.push(yStart - R * (1 - Math.cos(theta)));
-                    }
-                } else if (!errorMessageDiv.textContent) {
-                     errorMessageDiv.textContent = `Invalid R (${R ? R.toFixed(2) : R}) or theta_f (${thetaF ? thetaF.toFixed(3) : thetaF}).`;
-                }
-            }
-
-            if (xCycloid.length > 0) {
-                traces.push({
-                    x: xCycloid, y: yCycloid, mode: 'lines',
-                    line: { color: '#1f77b4', width: 2.5 }, name: 'Brachistochrone' // Plotly default blue, good contrast
-                });
-            }
-
-            let xGenCircle = [], yGenCircle = [];
-            if (R > 0 && R < Infinity && xCycloid.length > 1 && deltaX > 1e-9 && deltaY > 1e-9 && !isNaN(thetaF) && thetaF > 1e-7 && thetaF < (2*Math.PI - 1e-7) ) {
-                const circleCenterX = R * thetaF;
-                const circleCenterY = yStart - R;
-                const N_circle_pts = 50;
-                for (let i = 0; i <= N_circle_pts; i++) {
-                    const angle = (i / N_circle_pts) * 2 * Math.PI;
-                    xGenCircle.push(circleCenterX + R * Math.cos(angle));
-                    yGenCircle.push(circleCenterY + R * Math.sin(angle));
-                }
-                traces.push({
-                    x: xGenCircle, y: yGenCircle, mode: 'lines',
-                    line: { color: '#7f7f7f', dash: 'dot', width: 1 }, name: 'Generating Circle' // Plotly default grey
-                });
-            }
-
-            traces.push({
-                x: [P1.x, P2.x], y: [P1.y, P2.y], mode: 'markers',
-                marker: { color: '#fff', size: 8, line: {color: '#555', width:1} }, // White markers with dark outline
-                name: 'Start/End Points'
-            });
-
-            let allX = [P1.x, P2.x, ...xCycloid, ...xGenCircle].filter(v => isFinite(v));
-            let allY = [P1.y, P2.y, ...yCycloid, ...yGenCircle].filter(v => isFinite(v));
-            let minX = 0, maxX = Math.max(1, xLength), minY = 0, maxY = Math.max(1, yStart, yEnd);
-            if (allX.length > 0) { minX = Math.min(...allX); maxX = Math.max(...allX); }
-            if (allY.length > 0) { minY = Math.min(...allY); maxY = Math.max(...allY); }
-            const paddingX = Math.max((maxX - minX) * 0.1, 0.5);
-            const paddingY = Math.max((maxY - minY) * 0.1, 0.5);
-
+            // This is the main layout object for the Plotly chart
             const layout = {
                 title: 'Brachistochrone Curve',
-                template: 'plotly_dark', // KEY CHANGE for Plotly dark theme
-                xaxis: { range: [minX - paddingX, maxX + paddingX], zeroline: false },
-                yaxis: { range: [minY - paddingY, maxY + paddingY], scaleanchor: "x", scaleratio: 1, zeroline: false },
-                legend: {
-                    x: 0.05, y: 0.95,
-                    // bgcolor: 'rgba(51,51,51,0.7)', // Darker legend background if needed
-                    // bordercolor: '#777',
-                    // font: { color: '#e0e0e0' } // Already handled by template: 'plotly_dark'
-                },
+                template: 'plotly_dark', // <<< THIS IS THE KEY FOR PLOTLY DARK THEME
+                xaxis: { range: [mX-pX, MX+pX], zeroline: false },
+                yaxis: { range: [mY-pY, MY+pY], scaleanchor: "x", scaleratio: 1, zeroline: false },
+                legend: { x: 0.05, y: 0.95 }, // plotly_dark template styles legend text/bg
                 margin: { l: 60, r: 20, b: 50, t: 50, pad: 4 }
             };
 
